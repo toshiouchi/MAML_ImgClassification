@@ -46,7 +46,7 @@ def create_batch_of_tasks(taskset, is_shuffle = True, outer_batch_size = 4):
 
 # [num_task, inner_batch, num_class * k, n_class = 3, img_size = 32, img_size =32] 画像タスクデータ
 # [num_task, inter_batch, num_class * k ]　ラベルタスクデータを作る。
-def build_task_dataset( img, target, num_task, k_support, k_query, num_class, inner_batch ):
+def build_task_dataset( img, target, num_all_task, num_task, k_support, k_query, num_class, inner_batch ):
     
     #画像データとラベルデータをシャフル    
     idx = range( 0, len(img), 1 )
@@ -69,8 +69,8 @@ def build_task_dataset( img, target, num_task, k_support, k_query, num_class, in
     exam_query3_target = []
     for b in range(num_task):  # タスクのループ
         # タスクは 0 ～ 19 の20個、ランダムに選択
-        current_task_support = torch.randint( 0, num_task, size=(1,))
-        #current_task_query = torch.randint( 0, num_task, size=(1,))
+        current_task_support = torch.randint( 0, num_all_task, size=(1,))
+        #current_task_query = torch.randint( 0, num_all_task, size=(1,))
         # support データセットと query データセットのタスクは同じで良いようです。
         current_task_query = current_task_support
         exam_support2_img = []
