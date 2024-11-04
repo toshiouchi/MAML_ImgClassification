@@ -10,3 +10,12 @@ https://github.com/ta9ryuWalrus/MAML_Reproduction
 https://github.com/mailong25/meta-learning-bert/tree/master
 
 https://qiita.com/ku2482/items/ee2fd87bbb5353664f59
+
+
+Training and Validation
+
+>python3 main9_16.py
+
+Test
+
+>python3 test9_16.py
