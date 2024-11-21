@@ -56,6 +56,10 @@ def adaptation(model, outer_optimizer, batch, loss_fn, train_step, train, device
             # 各タスクについて、上で求めたモデルパラメーターを使って損失を求める。
             logits = model.adaptation( x, weights2 )
             outer_loss += loss_fn( logits, y )
+            pre_label_id = torch.argmax( logits, dim = 1 )
+            acc = torch.sum( torch.eq( pre_label_id, y ).float() ) / y.size(0)
+            task_accs.append(acc)
+
 
     # 訓練時、二番目の損失関数（各タスクの総和）を使って、一番目の損失関数によるモデルパラメータの前を基準に勾配を求める。
     if train:
@@ -74,27 +78,31 @@ def adaptation(model, outer_optimizer, batch, loss_fn, train_step, train, device
 
 
     # 更新したモデルパラメーターを用いて、損失と精度を求める。
-    loss = 0
-    for idx in range(x_train.size(0)): # task
-
-        # query data
-        input_x = x_val[idx].to(device)
-        input_y = y_val[idx].to(device)
-
-        with torch.no_grad():
-            x = input_x.view( -1, n_class, img_size, img_size ) # query_batch = 1
-            y = input_y.view( -1 )  # query_batch = 1
-            q_outputs = model( x )
-            loss += loss_fn( q_outputs, y )
-            pre_label_id = torch.argmax( q_outputs, dim = 1 )
-            acc = torch.sum( torch.eq( pre_label_id, y ).float() ) / y.size(0)
-            task_accs.append(acc)
+    #loss = 0
+    #for idx in range(x_train.size(0)): # task
+    #
+    #    # query data
+    #    input_x = x_val[idx].to(device)
+    #    input_y = y_val[idx].to(device)
+    #
+    #    with torch.no_grad():
+    #        x = input_x.view( -1, n_class, img_size, img_size ) # query_batch = 1
+    #        y = input_y.view( -1 )  # query_batch = 1
+    #        q_outputs = model( x )
+    #        loss += loss_fn( q_outputs, y )
+    #        pre_label_id = torch.argmax( q_outputs, dim = 1 )
+    #        acc = torch.sum( torch.eq( pre_label_id, y ).float() ) / y.size(0)
+    #        task_accs.append(acc)
             
     task_accs = torch.stack( task_accs )
-            
-    print( "loss:", loss.item() / ( idx + 1 ) )
 
-    return loss.item() / ( idx + 1 ), torch.mean(task_accs).item()
+    print( "loss:", outer_loss.item() / ( idx + 1 ) )
+
+    return outer_loss.item() / ( idx + 1 ), torch.mean(task_accs).item()
+            
+    #print( "loss:", loss.item() / ( idx + 1 ) )
+
+    #return loss.item() / ( idx + 1 ), torch.mean(task_accs).item()
     
 def validation(model, batch, loss_fn, train_step, device):
     #評価用ルーチン
