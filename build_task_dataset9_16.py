@@ -23,12 +23,8 @@ def random_seed(value):
 
 # list からランダムに kosuu の数値をとってきて list を作る。
 def select( list, kosuu ):
-    while True:
-        idx = torch.randint( 0, len(list), (kosuu,))
-        if kosuu == len( torch.unique(idx)):
-            break
-    #print( "idx:", idx )
-    return list[idx]
+    output = random.sample( list.tolist(), kosuu )
+    return output
 
 # ( outer_batch の次元のある)taskset から outer_batch_size の outer_batch データを作る。    
 def create_batch_of_tasks(taskset, is_shuffle = True, outer_batch_size = 4):

@@ -38,9 +38,7 @@ def adaptation(model, outer_optimizer, batch, loss_fn, train_step, train, device
         loss = loss / (inner_step + 1 ) / train_step 
 
         #各タスクについて一番目の損失関数からモデルパラメーターを求める。
-        #graph を残して、2回めの更新のときにその情報を使う。
-        #gradients = torch.autograd.grad(loss, weights.values())
-        gradients = torch.autograd.grad(loss, weights.values(), create_graph=True)
+        gradients = torch.autograd.grad(loss, weights.values())
         weights2 = OrderedDict((name, param - lr1 * grad) for ((name, param), grad) in zip(weights.items(), gradients))
 
         print("Inner Loss: ", loss.item())
@@ -55,26 +53,28 @@ def adaptation(model, outer_optimizer, batch, loss_fn, train_step, train, device
             y = input_y.view( -1 )  # query_batch = 1
             # 各タスクについて、上で求めたモデルパラメーターを使って損失を求める。
             logits = model.adaptation( x, weights2 )
-            outer_loss += loss_fn( logits, y )
+            outer_loss0 = loss_fn( logits, y )
+            tmp = torch.autograd.grad(outer_loss0, weights.values())
+            if idx == 0:
+                gradients2 = list(tmp)
+            else:
+                #gradients2 += list(tmp)
+                gradients2 = [x + y for x, y in zip(gradients2, list(tmp))]
+            outer_loss += outer_loss0
             pre_label_id = torch.argmax( logits, dim = 1 )
             acc = torch.sum( torch.eq( pre_label_id, y ).float() ) / y.size(0)
             task_accs.append(acc)
-
-
-    # 訓練時、二番目の損失関数（各タスクの総和）を使って、一番目の損失関数によるモデルパラメータの前を基準に勾配を求める。
-    if train:
-        gradients2 = torch.autograd.grad(outer_loss, weights.values())
-        #weights = OrderedDict((name, param - lr2 * grad) for ((name, param), grad) in zip(weights.items(), gradients2))
 
     #　上で求めた勾配で、モデルのパラメーターを更新する。
     for i, params in enumerate(model.parameters()):
         if train:
             params.grad = gradients2[i]
+            outer_optimizer.step()
+            outer_optimizer.zero_grad()    
         else:
-            params.grad = gradients[i]
+            #params.grad = gradients[i]
+            continue
 
-    outer_optimizer.step()
-    outer_optimizer.zero_grad()    
 
 
     # 更新したモデルパラメーターを用いて、損失と精度を求める。
