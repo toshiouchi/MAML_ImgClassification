@@ -6,7 +6,7 @@ from torchvision import datasets, transforms
 import random
 import time
 from maml9_16 import MAML
-from train9_16 import adaptation, validation
+from train9_16 import adaptation
 import pickle
 from torch.utils.data import Dataset
 from collections import OrderedDict
@@ -23,8 +23,12 @@ def random_seed(value):
 
 # list からランダムに kosuu の数値をとってきて list を作る。
 def select( list, kosuu ):
-    output = random.sample( list.tolist(), kosuu )
-    return output
+    while True:
+        idx = torch.randint( 0, len(list), (kosuu,))
+        if kosuu == len( torch.unique(idx)):
+            break
+    #print( "idx:", idx )
+    return list[idx]
 
 # ( outer_batch の次元のある)taskset から outer_batch_size の outer_batch データを作る。    
 def create_batch_of_tasks(taskset, is_shuffle = True, outer_batch_size = 4):
@@ -76,45 +80,30 @@ def build_task_dataset( img, target, num_all_task, num_task, k_support, k_query,
         exam_support2_target = []
         exam_query2_img = []
         exam_query2_target = []
-        for c in range( inner_batch ): # inner_batch のループ
-            exam_support1_img = []
-            exam_support1_target = []
-            exam_query1_img = []
-            exam_query1_target = []
-            for k in range( num_class ): # N-way K-shot のループ N 部分
-                # タスク3 だったら、 3 * (num_class = 5) + 0～4 と ラベルが等しい添え字を True False で取得。
-                idx_support = target ==  current_task_support * num_class + k
-                idx_query = target ==  current_task_query * num_class + k
-                # 0 ～ データ数の数字を生成。
-                idx2 = torch.arange( 0, len(img) , 1 ).long()
-                # 上で True False の添え字を番号添え字に変換
-                idx3_support = idx2[idx_support]
-                idx3_query = idx2[idx_query]
-                # 番号添え字の中からランダムに k_support あるいは k_query 個選ぶ。
-                idx4_support = select( idx3_support, k_support )
-                idx4_query = select( idx3_query, k_query )
-                # 選択したデータを追加。
-                for l in range( k_support ): # suppor データの N-way K-shot のループ k 部分
-                    exam_support1_img.append(img[idx4_support[l]])
-                    exam_support1_target.append( k )
-                for l in range( k_query ): # query データの N-way K-shot のループ k 部分
-                    exam_query1_img.append(img[idx4_query[l]])
-                    exam_query1_target.append( k )
+        for k in range( num_class ): # N-way K-shot のループ N 部分
+            # タスク3 だったら、 3 * (num_class = 5) + 0～4 と ラベルが等しい添え字を True False で取得。
+            idx_support = target ==  current_task_support * num_class + k
+            idx_query = target ==  current_task_query * num_class + k
+            # 0 ～ データ数の数字を生成。
+            idx2 = torch.arange( 0, len(img) , 1 ).long()
+            # 上で True False の添え字を番号添え字に変換
+            idx3_support = idx2[idx_support]
+            idx3_query = idx2[idx_query]
+            # 番号添え字の中からランダムに k_support あるいは k_query 個選ぶ。
+            idx4_support = select( idx3_support, k_support )
+            idx4_query = select( idx3_query, k_query )
+            # 選択したデータを追加。
+            for l in range( k_support ): # suppor データの N-way K-shot のループ k 部分
+                exam_support2_img.append(img[idx4_support[l]])
+                exam_support2_target.append( k )
+            for l in range( k_query ): # query データの N-way K-shot のループ k 部分
+                exam_query2_img.append(img[idx4_query[l]])
+                exam_query2_target.append( k )
                 
-            exam_support1_img = torch.stack( exam_support1_img, dim = 0 )
-            exam_support1_target = torch.tensor( exam_support1_target )
-            exam_query1_img = torch.stack( exam_query1_img, dim = 0 )
-            exam_query1_target = torch.tensor( exam_query1_target )
-
-            exam_support2_img.append( exam_support1_img )
-            exam_support2_target.append( exam_support1_target )
-            exam_query2_img.append( exam_query1_img )
-            exam_query2_target.append( exam_query1_target )
-               
         exam_support2_img = torch.stack( exam_support2_img, dim = 0 )
-        exam_support2_target = torch.stack( exam_support2_target, dim = 0 )
+        exam_support2_target = torch.tensor( exam_support2_target )
         exam_query2_img = torch.stack( exam_query2_img, dim = 0 )
-        exam_query2_target = torch.stack( exam_query2_target, dim = 0 )
+        exam_query2_target = torch.tensor( exam_query2_target )
 
         exam_support3_img.append( exam_support2_img )
         exam_support3_target.append( exam_support2_target )

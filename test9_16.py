@@ -86,7 +86,7 @@ def main():
     f = open('log.txt', 'a')
     for loop, test_task in enumerate( db_test ):
         #random_seed(123)
-        loss, acc = test_model(model, test_task, loss_fn, train_step = 10, device=device, n_class = n_class, img_size = img_size)
+        loss, acc = test_model(model, test_task, loss_fn, train_step = 10, lr1 = 1e-3, device=device, n_class = n_class, img_size = img_size)
         acc_all_test.append(acc)
         loss_all_test.append( loss )
         #random_seed(int(time.time() % 10))

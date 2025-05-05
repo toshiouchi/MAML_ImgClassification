@@ -6,7 +6,7 @@ from torchvision import datasets, transforms
 import random
 import time
 from maml9_16 import MAML
-from train9_16 import adaptation, validation
+from train9_16 import adaptation
 import pickle
 from torch.utils.data import Dataset
 from build_task_dataset9_16 import build_task_dataset, create_batch_of_tasks, random_seed
@@ -20,7 +20,7 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     torch.backends.cudnn.benchmark = True
 
-    epochs = 300
+    epochs = 100
     model = MAML().to(device)
     outer_optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     loss_fn = torch.nn.CrossEntropyLoss().to(device)
@@ -59,6 +59,9 @@ def main():
         if i < 5000:
             img2.append( im )
             target2.append( tar )
+        #elif  i >= 10000 and i < 15000:
+        #    img2.append( im )
+        #    target2.append( tar )
         else:
             break
         
@@ -89,7 +92,7 @@ def main():
     ob_val = []
     # validation 用の taskset を作り outer_batch の次元を加える。
     for i in range( outer_batch0 ):
-        val = build_task_dataset( img2, target2, num_all_task = all_class // num_class, num_task = 20, k_support=20, k_query=20, num_class = 5, inner_batch = 1, is_val = False )
+        val = build_task_dataset( img2, target2, num_all_task = all_class // num_class, num_task = 20, k_support=20, k_query=20, num_class = 5, inner_batch = 1, is_val = True )
         ob_val.append( val )
 
     global_step = 0
@@ -101,18 +104,18 @@ def main():
         ob_train = []
         # 学習用の taskset を作り outer_batch の次元を加える。
         for i in range( outer_batch0 ):
-            train = build_task_dataset(img, target, num_all_task = all_class // num_class, num_task = 20, k_support=10, k_query=15, num_class = 5, inner_batch = 3, is_val = True )
+            train = build_task_dataset(img, target, num_all_task = all_class // num_class, num_task = 20, k_support=10, k_query=15, num_class = 5, inner_batch = 3, is_val = False )
             ob_train.append( train )
 
         # 学習用データセットを作る。
-        db_train = create_batch_of_tasks( ob_train, is_shuffle = True, outer_batch_size = 3 )
+        db_train = create_batch_of_tasks( ob_train, is_shuffle = True, outer_batch_size = 5 )
 
         for step, train_task in enumerate(db_train):
         
             f = open('log.txt', 'a')
         
             #学習。
-            loss, acc = adaptation(model, outer_optimizer, train_task, loss_fn,  train_step=5, train=True, device=device)
+            loss, acc = adaptation(model, outer_optimizer, train_task, loss_fn,  train_step=5, train=True, lr1 = 1e-3, device=device)
             train_loss_log.append( loss )
             train_acc_log.append( acc )   
         
@@ -123,12 +126,15 @@ def main():
             if global_step % 20 == 0:
                 random_seed(123)
                 print("\n-----------------Validation Mode-----------------\n")
-                db_val = create_batch_of_tasks(ob_val, is_shuffle = False, outer_batch_size = 1)
+                db_val = create_batch_of_tasks(ob_val, is_shuffle = False, outer_batch_size = 3)
                 acc_all_val = []
                 loss_all_val = []
 
                 for val_task in db_val:
-                    loss, acc = validation(model, val_task, loss_fn, train_step = 10, device=device)
+                    loss, acc = adaptation(model, outer_optimizer, val_task, loss_fn,  train_step=5, train=False, lr1 = 1e-3, device=device)
+                    #print( "val loss:", loss )
+                    #print( "val acc:", acc )
+                    
                     acc_all_val.append(acc)
                     loss_all_val.append( loss )
 
