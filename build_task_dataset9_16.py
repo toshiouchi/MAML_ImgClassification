@@ -44,8 +44,8 @@ def create_batch_of_tasks(taskset, is_shuffle = True, outer_batch_size = 4):
     
     return output 
 
-# [num_task, inner_batch, num_class * k, n_class = 3, img_size = 32, img_size =32] 画像タスクデータ
-# [num_task, inter_batch, num_class * k ]　ラベルタスクデータを作る。
+# [num_task, num_class * k, n_class = 3, img_size = 32, img_size =32] 画像タスクデータ
+# [num_task, num_class * k ]　ラベルタスクデータを作る。
 def build_task_dataset( img, target, num_all_task, num_task, k_support, k_query, num_class, inner_batch, is_val = False ):
     
     #画像データとラベルデータをシャフル    
