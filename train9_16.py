@@ -16,11 +16,13 @@ def adaptation(model, outer_optimizer, batch, loss_fn, train_step, train, lr1,  
     task_accs = []
     num_task = len( x_train )
 
-    outer_loss = 0
+    outer_loss_item = 0
 
     if train:
-        weights = OrderedDict(model.named_parameters()) #今回の基準パラメータ
+        weights0 = OrderedDict(model.named_parameters()) #今回の基準パラメータ
     for idx in range(x_train.size(0)): # task
+        if train:
+            weights = weights0
         weights2 = OrderedDict(model.named_parameters())
         # batch 抽出
         input_x = x_train[idx].to(device)
@@ -55,9 +57,22 @@ def adaptation(model, outer_optimizer, batch, loss_fn, train_step, train, lr1,  
         x = input_x
         y = input_y
         # 各タスクについて、上で求めたモデルパラメーターを使って損失を求める。
-        model.train()
-        logits = model.adaptation( x, weights2 )
-        outer_loss += loss_fn( logits, y )
+        if train:
+            model.train()
+            logits = model.adaptation( x, weights2 )
+        else:
+            model.eval()
+            with torch.no_grad():
+                logits = model.adaptation( x, weights2 )
+            
+        outer_loss0 = loss_fn( logits, y )
+        outer_loss_item += outer_loss0.item()
+        if train:
+            tmp = torch.autograd.grad( outer_loss0, weights.values() )
+            if idx ==0:
+                gradients2 = list(tmp)
+            else:
+                gradients2 = [x + y for x, y in zip(gradients2, list(tmp))]
         pre_label_id = torch.argmax( logits, dim = 1 )
         acc = torch.sum( torch.eq( pre_label_id, y ).float() ) / y.size(0)
         task_accs.append(acc)
@@ -65,21 +80,17 @@ def adaptation(model, outer_optimizer, batch, loss_fn, train_step, train, lr1,  
 
     # 訓練時、二番目の損失関数（各タスクの総和）を使って、一番目の損失関数によるモデルパラメータの前を基準に勾配を求める。
     if train:
-        gradients2 = torch.autograd.grad(outer_loss, weights.values())
-
-        #　上で求めた勾配で、モデルのパラメーターを更新する。
+        outer_optimizer.zero_grad()
         for i, params in enumerate(model.parameters()):
             params.grad = gradients2[i]
-
         outer_optimizer.step()
-        outer_optimizer.zero_grad()    
-
 
     task_accs = torch.stack( task_accs )
+    outer_loss_item = outer_loss_item / num_task
 
-    print( "loss:", outer_loss.item() / ( idx + 1 ) )
+    print( "loss:", outer_loss_item )
 
-    return outer_loss.item() / num_task, torch.mean(task_accs).item()
+    return outer_loss_item, torch.mean(task_accs).item()
 
 def test_model(model, batch, loss_fn, train_step, lr1,  device, n_class, img_size):
     #評価用ルーチン
@@ -125,17 +136,18 @@ def test_model(model, batch, loss_fn, train_step, lr1,  device, n_class, img_siz
         print( "Inner loss:", loss1 )
 
         #各タスクについて上で求めた weights を用い、損失と精度を計算する。
+        # query data
+        input_x = x_val[idx].to(device)
+        input_y = y_val[idx].to(device)
+        x = input_x
+        y = input_y
         with torch.no_grad():
-            # query data
-            input_x = x_val[idx].to(device)
-            input_y = y_val[idx].to(device)
-            x = input_x
-            y = input_y
+            model.eval()
             logits = model.adaptation( x, weights2 )
             outer_loss += loss_fn( logits, y ).item()
-            pre_label_id = torch.argmax( logits, dim = 1 )
-            acc = torch.sum( torch.eq( pre_label_id, y ).float() ) / y.size(0)
-            task_accs.append(acc)
+        pre_label_id = torch.argmax( logits, dim = 1 )
+        acc = torch.sum( torch.eq( pre_label_id, y ).float() ) / y.size(0)
+        task_accs.append(acc)
 
     task_accs = torch.stack( task_accs )
 

@@ -131,7 +131,7 @@ def main():
                 loss_all_val = []
 
                 for val_task in db_val:
-                    loss, acc = adaptation(model, outer_optimizer, val_task, loss_fn,  train_step=5, train=False, lr1 = 1e-3, device=device)
+                    loss, acc = adaptation(model, outer_optimizer, val_task, loss_fn,  train_step=10, train=False, lr1 = 1e-3, device=device)
                     #print( "val loss:", loss )
                     #print( "val acc:", acc )
                     
